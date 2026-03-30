@@ -23,18 +23,22 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadNotifications();
-    const channel = supabase
-      .channel("notifications")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => loadNotifications())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    if (user) {
+      loadNotifications();
+      const channel = supabase
+        .channel("notifications")
+        .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => loadNotifications())
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [user]);
 
   const loadNotifications = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("notifications")
       .select("*")
+      .or(`user_id.eq.${user.id},user_id.is.null`)
       .order("created_at", { ascending: false })
       .limit(100);
     if (data) setNotifications(data as Notification[]);
@@ -57,9 +61,9 @@ const Notifications = () => {
 
   const deleteAllNotifications = async () => {
     if (!confirm("هل تريد حذف جميع الإشعارات؟")) return;
-    // Delete user's notifications (where user_id matches or is null for broadcasts)
+    // Delete only user's notifications (where user_id matches or is null for broadcasts)
     if (user) {
-      await supabase.from("notifications").delete().eq("user_id", user.id);
+      await supabase.from("notifications").delete().or(`user_id.eq.${user.id},user_id.is.null`);
     }
     setNotifications([]);
     toast({ title: "تم", description: "تم حذف جميع الإشعارات" });

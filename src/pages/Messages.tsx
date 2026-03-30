@@ -35,12 +35,21 @@ interface PrivateMessage {
   created_at: string;
 }
 
+interface PendingRequest {
+  id: string;
+  sender_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+}
+
 const Messages = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<PrivateMessage[]>([]);
   const [input, setInput] = useState("");
@@ -61,7 +70,10 @@ const Messages = () => {
   const userGender = (profile as any)?.gender || "male";
 
   useEffect(() => {
-    if (user) loadFriends();
+    if (user) {
+      loadFriends();
+      loadPendingRequests();
+    }
   }, [user]);
 
   useEffect(() => {
@@ -146,6 +158,60 @@ const Messages = () => {
       ...p,
       unreadCount: unreadMap.get(p.id) || 0,
     })));
+  };
+
+  const loadPendingRequests = async () => {
+    if (!user) return;
+    // Get pending requests where user is the receiver
+    const { data: requests } = await supabase
+      .from("friend_requests")
+      .select("id, sender_id, created_at")
+      .eq("receiver_id", user.id)
+      .eq("status", "pending");
+
+    if (!requests || requests.length === 0) { setPendingRequests([]); return; }
+
+    const senderIds = requests.map(r => r.sender_id);
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url")
+      .in("id", senderIds);
+
+    setPendingRequests((profiles || []).map(p => {
+      const req = requests.find(r => r.sender_id === p.id);
+      return {
+        id: req?.id || p.id,
+        sender_id: p.id,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+        created_at: req?.created_at || "",
+      };
+    }));
+  };
+
+  const acceptFriendRequest = async (requestId: string, senderId: string) => {
+    if (!user) return;
+    // Update status to accepted
+    await supabase.from("friend_requests").update({ status: "accepted" }).eq("id", requestId);
+    
+    // Send notification to the sender
+    await supabase.from("notifications").insert({
+      user_id: senderId,
+      title: "تم قبول طلب الصداقة",
+      message: `${profile?.display_name || "مستخدم"} قبل طلب الصداقة الخاص بك`,
+    });
+
+    toast({ title: "تم", description: "تم قبول طلب الصداقة بنجاح" });
+    loadPendingRequests();
+    loadFriends();
+  };
+
+  const declineFriendRequest = async (requestId: string) => {
+    if (!user) return;
+    await supabase.from("friend_requests").update({ status: "rejected" }).eq("id", requestId);
+    toast({ title: "تم", description: "تم رفض طلب الصداقة" });
+    loadPendingRequests();
   };
 
   const loadMessages = async (friendId: string) => {
@@ -344,6 +410,44 @@ const Messages = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Pending Friend Requests */}
+        {pendingRequests.length > 0 && (
+          <div className="p-4 border-b border-border/40">
+            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-accent" /> طلبات الصداقة ({pendingRequests.length})
+            </h3>
+            <div className="space-y-2">
+              {pendingRequests.map(req => (
+                <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/20">
+                  {req.avatar_url ? (
+                    <img src={req.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                      {(req.display_name || "؟")[0]}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{req.display_name || "مستخدم"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(req.created_at).toLocaleDateString("ar")}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => acceptFriendRequest(req.id, req.sender_id)}
+                      className="bg-primary text-primary-foreground text-xs">
+                      <Check className="h-3 w-3 ml-1" /> قبول
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => declineFriendRequest(req.id)}
+                      className="text-destructive hover:text-destructive text-xs">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

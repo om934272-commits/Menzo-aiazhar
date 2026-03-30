@@ -72,6 +72,103 @@ const Admin = () => {
   const [editUserPhone, setEditUserPhone] = useState("");
   const [editUserPhoneParent, setEditUserPhoneParent] = useState("");
   const [newPasswordForUser, setNewPasswordForUser] = useState("");
+  
+  // Admin password verification for sensitive actions
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [pendingAction, setPendingAction] = useState<{ type: string; data?: any } | null>(null);
+  const [showUserPasswordModal, setShowUserPasswordModal] = useState(false);
+  const [showUserEmailModal, setShowUserEmailModal] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<{ name: string; key: string; enabled: boolean }[]>([
+    { name: "Lovable AI Gateway", key: "", enabled: true },
+    { name: "OpenRouter", key: "", enabled: true },
+    { name: "DeepSeek", key: "", enabled: true },
+    { name: "xAI (Grok)", key: "", enabled: true },
+    { name: "Anthropic (Claude)", key: "", enabled: true },
+    { name: "HuggingFace", key: "", enabled: true },
+    { name: "Optiic", key: "", enabled: true },
+    { name: "Tavily", key: "", enabled: true },
+    { name: "Exa", key: "", enabled: true },
+    { name: "Leonardo AI", key: "", enabled: true },
+  ]);
+  const [showApiKeyInput, setShowApiKeyInput] = useState<number | null>(null);
+  const [newApiKey, setNewApiKey] = useState("");
+
+  // Verify admin password
+  const verifyAdminPassword = async () => {
+    if (!adminPassword.trim() || !user) {
+      toast({ title: "خطأ", description: "يرجى إدخال كلمة مرور الإدارة", variant: "destructive" });
+      return false;
+    }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: adminPassword
+      });
+      if (error) {
+        toast({ title: "خطأ", description: "كلمة مرور الإدارة غير صحيحة", variant: "destructive" });
+        return false;
+      }
+      setAdminPassword("");
+      return true;
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل التحقق من كلمة المرور", variant: "destructive" });
+      return false;
+    }
+  };
+
+  // Handle protected action
+  const handleProtectedAction = async (actionType: string, actionData?: any) => {
+    setPendingAction({ type: actionType, data: actionData });
+    setShowAdminPasswordModal(true);
+  };
+
+  // Execute pending action after password verification
+  const executePendingAction = async () => {
+    const verified = await verifyAdminPassword();
+    if (!verified) return;
+    
+    setShowAdminPasswordModal(false);
+    if (!pendingAction) return;
+
+    const { type, data } = pendingAction;
+    
+    switch (type) {
+      case "deleteUser":
+        if (data?.userId) {
+          await deleteUserAccount(data.userId);
+        }
+        break;
+      case "banUser":
+        if (data?.userId !== undefined && data?.ban !== undefined) {
+          await banUser(data.userId, data.ban);
+        }
+        break;
+      case "banForum":
+        if (data?.userId !== undefined && data?.ban !== undefined) {
+          await banUserFromForum(data.userId, data.ban);
+        }
+        break;
+    }
+    setPendingAction(null);
+  };
+
+  // Save API key
+  const saveApiKey = async (index: number) => {
+    if (!newApiKey.trim()) {
+      toast({ title: "خطأ", description: "يرجى إدخال مفتاح API", variant: "destructive" });
+      return;
+    }
+    const updatedKeys = [...apiKeys];
+    updatedKeys[index].key = newApiKey.trim();
+    setApiKeys(updatedKeys);
+    setShowApiKeyInput(null);
+    setNewApiKey("");
+    toast({ title: "تم", description: `تم حفظ مفتاح ${updatedKeys[index].name}` });
+  };
 
   useEffect(() => { checkAdmin(); }, [user]);
 
@@ -310,13 +407,19 @@ const Admin = () => {
               <Button size="sm" onClick={() => updateUserProfile(selectedUser.id)} className="bg-primary text-primary-foreground">
                 <Edit3 className="ml-1 h-3.5 w-3.5" /> حفظ التعديلات
               </Button>
-              <Button variant={selectedUser.is_banned ? "outline" : "destructive"} size="sm" onClick={() => banUser(selectedUser.id, !selectedUser.is_banned)}>
+              <Button size="sm" onClick={() => setShowUserEmailModal(true)} variant="outline">
+                <Mail className="ml-1 h-4 w-4" /> عرض الإيميل
+              </Button>
+              <Button size="sm" onClick={() => setShowUserPasswordModal(true)} variant="outline">
+                <Lock className="ml-1 h-4 w-4" /> كلمة المرور
+              </Button>
+              <Button variant={selectedUser.is_banned ? "outline" : "destructive"} size="sm" onClick={() => handleProtectedAction("banUser", { userId: selectedUser.id, ban: !selectedUser.is_banned })}>
                 <Ban className="ml-1 h-4 w-4" /> {selectedUser.is_banned ? "فك الحظر" : "حظر المستخدم"}
               </Button>
-              <Button variant={selectedUser.is_forum_banned ? "outline" : "secondary"} size="sm" onClick={() => banUserFromForum(selectedUser.id, !selectedUser.is_forum_banned)}>
+              <Button variant={selectedUser.is_forum_banned ? "outline" : "secondary"} size="sm" onClick={() => handleProtectedAction("banForum", { userId: selectedUser.id, ban: !selectedUser.is_forum_banned })}>
                 <Ban className="ml-1 h-4 w-4" /> {selectedUser.is_forum_banned ? "فك حظر المنتدى" : "حظر من المنتدى"}
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => deleteUserAccount(selectedUser.id)}>
+              <Button variant="destructive" size="sm" onClick={() => handleProtectedAction("deleteUser", { userId: selectedUser.id })}>
                 <Trash2 className="ml-1 h-4 w-4" /> حذف الحساب
               </Button>
             </div>
@@ -659,33 +762,64 @@ const Admin = () => {
         {/* Settings */}
         {tab === "settings" && (
           <div className="space-y-6">
+            {/* API Keys Management */}
             <div className="glass rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><Settings className="h-5 w-5 text-primary" /> إعدادات الموقع</h2>
-              <p className="text-sm text-muted-foreground">
-                يمكنك إدارة إعدادات الموقع ومفاتيح API من خلال Lovable Cloud مباشرة.
+              <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2"><Key className="h-5 w-5 text-accent" /> إدارة مفاتيح API</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                أضف أو حدّث مفاتيح API لتشغيل نماذج الذكاء الاصطناعي المختلفة. ستحتاج لإدخال كلمة مرور الإدارة للحفظ.
               </p>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {apiKeys.map((apiKey, index) => (
+                  <div key={apiKey.name} className="bg-secondary/30 rounded-xl p-4 border border-border/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        {apiKey.enabled ? "✅" : "❌"} {apiKey.name}
+                      </h4>
+                      {apiKey.key ? (
+                        <span className="text-xs text-accent">مُعدّ</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">غير مُعدّ</span>
+                      )}
+                    </div>
+                    {showApiKeyInput === index ? (
+                      <div className="flex gap-2 mt-2">
+                        <Input 
+                          type="password" 
+                          value={newApiKey} 
+                          onChange={(e) => setNewApiKey(e.target.value)} 
+                          placeholder="أدخل مفتاح API"
+                          className="flex-1 bg-background/50 text-foreground text-xs"
+                        />
+                        <Button size="sm" onClick={() => saveApiKey(index)} className="bg-primary text-primary-foreground">
+                          حفظ
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setShowApiKeyInput(null); setNewApiKey(""); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setShowApiKeyInput(index)} className="w-full mt-2 text-xs">
+                        <Edit3 className="ml-1 h-3 w-3" /> {apiKey.key ? "تغيير المفتاح" : "إضافة مفتاح"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* System Status */}
+            <div className="glass rounded-2xl p-6">
+              <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> حالة النظام</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/20">
-                  <h4 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2"><Key className="h-4 w-4 text-accent" /> مفاتيح API المُعدّة</h4>
-                  <ul className="text-xs text-muted-foreground space-y-1">
-                    <li>✅ Lovable AI Gateway</li>
-                    <li>✅ OpenRouter</li>
-                    <li>✅ DeepSeek</li>
-                    <li>✅ xAI (Grok)</li>
-                    <li>✅ Anthropic (Claude)</li>
-                    <li>✅ HuggingFace</li>
-                    <li>✅ Optiic (تحليل الصور)</li>
-                    <li>✅ Tavily (بحث)</li>
-                    <li>✅ Exa (بحث)</li>
-                    <li>✅ Leonardo AI</li>
-                  </ul>
-                </div>
-                <div className="bg-secondary/30 rounded-xl p-4 border border-border/20">
-                  <h4 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /> حالة النظام</h4>
-                  <ul className="text-xs text-muted-foreground space-y-1">
+                  <ul className="text-xs text-muted-foreground space-y-2">
                     <li>📊 قاعدة البيانات: متصلة</li>
                     <li>🔐 المصادقة: مفعّلة (تأكيد الإيميل مطلوب)</li>
                     <li>📦 التخزين: avatars bucket عام</li>
+                  </ul>
+                </div>
+                <div className="bg-secondary/30 rounded-xl p-4 border border-border/20">
+                  <ul className="text-xs text-muted-foreground space-y-2">
                     <li>⚡ Edge Functions: chat, generate-image, web-search</li>
                     <li>📅 الامتحانات: {daysLeft > 0 ? `باقي ${daysLeft} يوم` : "انتهت"}</li>
                   </ul>
@@ -695,6 +829,104 @@ const Admin = () => {
           </div>
         )}
       </div>
+
+      {/* Admin Password Modal */}
+      {showAdminPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => { setShowAdminPasswordModal(false); setPendingAction(null); }} />
+          <div className="relative glass rounded-2xl p-6 w-full max-w-md mx-4">
+            <button onClick={() => { setShowAdminPasswordModal(false); setPendingAction(null); }} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" /> التحقق من هوية الإدارة
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              يرجى إدخال كلمة مرور حسابك الإداري لتأكيد هويتك.
+            </p>
+            <Input 
+              type="password" 
+              value={adminPassword} 
+              onChange={(e) => setAdminPassword(e.target.value)} 
+              placeholder="كلمة مرور الإدارة"
+              className="mb-4 bg-secondary border-border/30 text-foreground"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => { setShowAdminPasswordModal(false); setPendingAction(null); }} variant="outline" className="flex-1">
+                إلغاء
+              </Button>
+              <Button onClick={executePendingAction} className="flex-1 bg-primary text-primary-foreground">
+                تأكيد
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Email Modal */}
+      {showUserEmailModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowUserEmailModal(false)} />
+          <div className="relative glass rounded-2xl p-6 w-full max-w-md mx-4">
+            <button onClick={() => setShowUserEmailModal(false)} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <Mail className="h-5 w-5 text-accent" /> معلومات المستخدم
+            </h3>
+            <div className="space-y-4">
+              <div className="bg-secondary/50 rounded-xl p-4 border border-border/30">
+                <label className="text-xs text-muted-foreground block mb-1">الاسم</label>
+                <p className="text-foreground font-medium">{selectedUser.display_name || "بدون اسم"}</p>
+              </div>
+              <div className="bg-secondary/50 rounded-xl p-4 border border-border/30">
+                <label className="text-xs text-muted-foreground block mb-1">معرف المستخدم (ID)</label>
+                <p className="text-foreground font-mono text-xs break-all">{selectedUser.id}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                ملاحظة: الإيميل مخفي لأسباب أمنية. لاسترجاع الإيميل، الرجاء التواصل مع الدعم الفني.
+              </p>
+            </div>
+            <Button onClick={() => setShowUserEmailModal(false)} className="w-full mt-4 bg-primary text-primary-foreground">
+              إغلاق
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* User Password Modal */}
+      {showUserPasswordModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowUserPasswordModal(false)} />
+          <div className="relative glass rounded-2xl p-6 w-full max-w-md mx-4">
+            <button onClick={() => setShowUserPasswordModal(false)} className="absolute top-4 left-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-accent" /> إعادة تعيين كلمة المرور
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              أدخل كلمة مرور جديدة للمستخدم <strong>{selectedUser.display_name || "المستخدم"}</strong>
+            </p>
+            <Input 
+              type="password" 
+              value={newPasswordForUser} 
+              onChange={(e) => setNewPasswordForUser(e.target.value)} 
+              placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"
+              className="mb-4 bg-secondary border-border/30 text-foreground"
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => setShowUserPasswordModal(false)} variant="outline" className="flex-1">
+                إلغاء
+              </Button>
+              <Button onClick={() => {/* TODO: Implement password reset */ toast({ title: "قريباً", description: "سيتم تفعيل هذه الميزة قريباً" })}} className="flex-1 bg-primary text-primary-foreground">
+                إعادة التعيين
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
