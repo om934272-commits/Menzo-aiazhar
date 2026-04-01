@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  ArrowLeft, Users, MessageSquare, BookOpen, Shield, Ban, Trash2, Lock, ChevronRight, Search, UserCircle, X, BarChart3, History, Bell, Mail, Send, Settings, Eye, EyeOff, CheckCircle2, XCircle, Download, Upload, Key, Edit3, AlertTriangle, Phone, Camera, Activity, Server, Database, Wifi, WifiOff, Clock, Filter, RefreshCw, UserPlus, MoreVertical, Power, RotateCcw, FileText, TrendingUp, TrendingDown
+  ArrowLeft, Users, MessageSquare, BookOpen, Shield, Ban, Trash2, Lock, ChevronRight, Search, UserCircle, X, BarChart3, History, Bell, Mail, Send, Settings, Eye, EyeOff, CheckCircle2, XCircle, Download, Upload, Key, Edit3, AlertTriangle, Phone, Camera
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,7 +32,7 @@ interface ConvDetail {
   model: string | null;
 }
 
-type Tab = "overview" | "users" | "conversations" | "notifications" | "contacts" | "forum_male" | "forum_female" | "settings" | "reports" | "analytics" | "activity" | "system";
+type Tab = "overview" | "users" | "conversations" | "notifications" | "contacts" | "forum_male" | "forum_female" | "settings" | "reports";
 
 const Admin = () => {
   const { user } = useAuth();
