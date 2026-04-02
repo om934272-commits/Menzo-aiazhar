@@ -663,10 +663,10 @@ const Chat = () => {
           )}
         </div>
 
-        {/* Scroll to bottom button */}
+        {/* Scroll to bottom button - positioned on side */}
         {showScrollBtn && (
           <button onClick={scrollToBottom}
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-glow flex items-center justify-center">
+            className="fixed right-4 bottom-24 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-glow flex items-center justify-center animate-bounce">
             <ChevronDown className="h-5 w-5" />
           </button>
         )}

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Camera, User, Save, Lock, Eye, EyeOff, Trash2, AlertTriangle, Phone, BookOpen } from "lucide-react";
+import { ArrowLeft, Camera, User, Save, Lock, Eye, EyeOff, Trash2, AlertTriangle, Phone, BookOpen, Palette, Moon, Sun, Monitor, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
@@ -18,6 +18,13 @@ const Profile = () => {
   const [division, setDivision] = useState<"scientific" | "literary">("scientific");
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Theme settings
+  const [theme, setTheme] = useState<"dark" | "light" | "cosmic">("dark");
+  const [accentColor, setAccentColor] = useState<string>("#00d4aa");
+  const [fontSize, setFontSize] = useState<"small" | "medium" | "large">("medium");
+  const [animations, setAnimations] = useState(true);
+  const [compactMode, setCompactMode] = useState(false);
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -166,6 +173,87 @@ const Profile = () => {
 
             {/* Division */}
             <div>
+          {/* Theme Settings Section */}
+          <div className="border-t border-border/30 pt-6 mt-6">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <Palette className="h-5 w-5 text-primary" /> إعدادات المظهر
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Theme Selection */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">سمة الموقع</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => setTheme("dark")}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${theme === "dark" ? "border-primary bg-primary/10" : "border-border/30 hover:border-primary/50"}`}>
+                    <Moon className="h-5 w-5" />
+                    <span className="text-xs">داكن</span>
+                  </button>
+                  <button onClick={() => setTheme("light")}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${theme === "light" ? "border-primary bg-primary/10" : "border-border/30 hover:border-primary/50"}`}>
+                    <Sun className="h-5 w-5" />
+                    <span className="text-xs">فاتح</span>
+                  </button>
+                  <button onClick={() => setTheme("cosmic")}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${theme === "cosmic" ? "border-primary bg-primary/10" : "border-border/30 hover:border-primary/50"}`}>
+                    <Sparkles className="h-5 w-5 text-accent" />
+                    <span className="text-xs">كونجي</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Accent Color */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">لون التمييز</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["#00d4aa", "#8b5cf6", "#ec4899", "#f59e0b", "#3b82f6", "#ef4444"].map(color => (
+                    <button key={color} onClick={() => setAccentColor(color)}
+                      className={`h-8 w-8 rounded-full border-2 transition-all ${accentColor === color ? "border-white scale-110" : "border-transparent"}`}
+                      style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Font Size */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">حجم الخط</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => setFontSize("small")} className={`p-2 rounded-lg border text-sm ${fontSize === "small" ? "border-primary bg-primary/10" : "border-border/30"}`}>صغير</button>
+                  <button onClick={() => setFontSize("medium")} className={`p-2 rounded-lg border text-base ${fontSize === "medium" ? "border-primary bg-primary/10" : "border-border/30"}`}>متوسط</button>
+                  <button onClick={() => setFontSize("large")} className={`p-2 rounded-lg border text-lg ${fontSize === "large" ? "border-primary bg-primary/10" : "border-border/30"}`}>كبير</button>
+                </div>
+              </div>
+
+              {/* Animations Toggle */}
+              <div className="flex items-center justify-between bg-secondary/30 rounded-xl p-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">الرسوم المتحركة</p>
+                  <p className="text-xs text-muted-foreground">تفعيل الحركات وال انتقالات</p>
+                </div>
+                <button onClick={() => setAnimations(!animations)} className={`h-6 w-11 rounded-full transition-colors ${animations ? "bg-primary" : "bg-secondary"}`}>
+                  <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${animations ? "translate-x-5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+
+              {/* Compact Mode Toggle */}
+              <div className="flex items-center justify-between bg-secondary/30 rounded-xl p-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">الوضع المختصر</p>
+                  <p className="text-xs text-muted-foreground">تصغير المسافات والهوامش</p>
+                </div>
+                <button onClick={() => setCompactMode(!compactMode)} className={`h-6 w-11 rounded-full transition-colors ${compactMode ? "bg-primary" : "bg-secondary"}`}>
+                  <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${compactMode ? "translate-x-5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+
+              <Button onClick={() => toast({ title: "تم الحفظ", description: "تم حفظ إعدادات المظهر بنجاح" })}
+                className="w-full bg-primary text-primary-foreground">
+                <Save className="ml-2 h-4 w-4" /> حفظ الإعدادات
+              </Button>
+            </div>
+          </div>
+
+          {/* Password Section */}
               <label className="text-sm text-muted-foreground mb-2 block flex items-center gap-1.5">
                 <BookOpen className="h-4 w-4" /> الشعبة
               </label>
