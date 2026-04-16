@@ -97,16 +97,33 @@ const Profile = () => {
 
   const handleDeleteAccount = async () => {
     if (!user) return;
+    if (!deletePassword.trim()) {
+      toast({ title: "خطأ", description: "يرجى إدخال كلمة المرور للتأكيد", variant: "destructive" });
+      setDeleteLoading(false);
+      return;
+    }
     setDeleteLoading(true);
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email!, password: deletePassword });
       if (signInError) { toast({ title: "خطأ", description: "كلمة المرور غير صحيحة", variant: "destructive" }); setDeleteLoading(false); return; }
+      
+      // Delete all user data in correct order
       await supabase.from("conversations").delete().eq("user_id", user.id);
+      await supabase.from("forum_posts").delete().eq("user_id", user.id);
+      await supabase.from("private_messages").delete().eq("sender_id", user.id);
+      await supabase.from("private_messages").delete().eq("receiver_id", user.id);
+      await supabase.from("friend_requests").delete().eq("sender_id", user.id);
+      await supabase.from("friend_requests").delete().eq("receiver_id", user.id);
+      await supabase.from("user_blocks").delete().eq("blocker_id", user.id);
+      await supabase.from("user_blocks").delete().eq("blocked_id", user.id);
+      await supabase.from("notifications").delete().eq("user_id", user.id);
       await supabase.from("user_roles").delete().eq("user_id", user.id);
       await supabase.from("profiles").delete().eq("id", user.id);
+      
+      // Sign out and navigate
       await signOut();
       navigate("/");
-      toast({ title: "تم حذف الحساب", description: "تم حذف جميع بياناتك" });
+      toast({ title: "تم حذف الحساب", description: "تم حذف جميع بياناتك بنجاح" });
     } catch (err: any) {
       toast({ title: "خطأ", description: err.message, variant: "destructive" });
     } finally { setDeleteLoading(false); }

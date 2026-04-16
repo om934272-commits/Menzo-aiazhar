@@ -26,17 +26,21 @@ interface Conversation {
 
 const MODEL_CATEGORIES = [
   {
-    label: "⚡ Lovable AI",
+    label: "🤖 OpenAI",
     models: [
-      { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash ⚡", desc: "سريع ومتوازن", deepThink: false },
-      { id: "google/gemini-3-pro-preview", label: "Gemini 3 Pro 🧠", desc: "أقوى نموذج Google", deepThink: false },
-      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro 💎", desc: "تفكير عميق", deepThink: true },
-      { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "متوازن", deepThink: false },
-      { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Lite 💨", desc: "أسرع وأرخص", deepThink: false },
       { id: "openai/gpt-5", label: "GPT-5 🌟", desc: "الأقوى من OpenAI", deepThink: true },
       { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "سريع واقتصادي", deepThink: false },
       { id: "openai/gpt-5-nano", label: "GPT-5 Nano 🚀", desc: "خفيف وسريع", deepThink: false },
-      { id: "openai/gpt-5.2", label: "GPT-5.2 🔥", desc: "أحدث إصدار", deepThink: true },
+    ],
+  },
+  {
+    label: "🔮 Google Gemini",
+    models: [
+      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro 💎", desc: "تفكير عميق", deepThink: true },
+      { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "متوازن", deepThink: false },
+      { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Lite 💨", desc: "أسرع وأرخص", deepThink: false },
+      { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash ⚡", desc: "سريع ومتوازن", deepThink: false },
+      { id: "google/gemini-3-pro-preview", label: "Gemini 3 Pro 🧠", desc: "أقوى نموذج Google", deepThink: false },
     ],
   },
   {
@@ -92,14 +96,18 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingTime, setThinkingTime] = useState(0);
   const [selectedModel, setSelectedModel] = useState(ALL_MODELS[0].id);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [showPlus, setShowPlus] = useState(false);
+  const [showPlusOptions, setShowPlusOptions] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -108,6 +116,7 @@ const Chat = () => {
   const [editingConvTitle, setEditingConvTitle] = useState("");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -247,12 +256,24 @@ const Chat = () => {
   const sendMessage = async (overrideInput?: string) => {
     const text = overrideInput || input.trim();
     if (!text || isLoading) return;
+    
+    // Start thinking timer if model supports deep thinking
+    const currentModel = ALL_MODELS.find(m => m.id === selectedModel);
+    if (currentModel?.deepThink) {
+      setIsThinking(true);
+      setThinkingTime(0);
+      thinkingTimerRef.current = setInterval(() => {
+        setThinkingTime(t => t + 1);
+      }, 1000);
+    }
+    
     const userMsg: Message = { role: "user", content: text, imageUrl: uploadedImageUrl || undefined };
     const newMsgs = [...messages, userMsg];
     setMessages(newMsgs);
     setInput("");
     setUploadedImageUrl(null);
     setUploadedImagePreview(null);
+    setUploadedFileName(null);
     setIsLoading(true);
 
     try {
@@ -268,6 +289,11 @@ const Chat = () => {
       }
     } finally {
       setIsLoading(false);
+      setIsThinking(false);
+      if (thinkingTimerRef.current) {
+        clearInterval(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
     }
   };
 
@@ -341,20 +367,29 @@ const Chat = () => {
       }
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       setUploadedImageUrl(publicUrl);
-      // Also show preview
+      // Also show preview and filename
       const reader = new FileReader();
       reader.onload = ev => setUploadedImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
+      setUploadedFileName(file.name);
     } else {
-      // Text file
+      // Text file - show filename above input
       const text = await file.text().catch(() => null);
       if (text) {
+        setUploadedFileName(file.name);
         setInput(prev => prev + `\n📎 محتوى الملف "${file.name}":\n\`\`\`\n${text.slice(0, 5000)}\n\`\`\``);
       } else {
+        setUploadedFileName(file.name);
         toast({ title: "غير مدعوم", description: "هذا النوع من الملفات غير مدعوم حالياً", variant: "destructive" });
       }
     }
     e.target.value = "";
+  };
+
+  const clearUploadedFile = () => {
+    setUploadedImageUrl(null);
+    setUploadedImagePreview(null);
+    setUploadedFileName(null);
   };
 
   const toggleRecording = () => {
@@ -650,11 +685,18 @@ const Chat = () => {
                     <Bot className="h-4 w-4" />
                   </div>
                   <div className="rounded-2xl bg-secondary/60 border border-border/30 px-4 py-3">
-                    <div className="flex gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0s" }} />
-                      <span className="h-2 w-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0.15s" }} />
-                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.3s" }} />
-                    </div>
+                    {isThinking ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-primary animate-pulse">🧠 جاري التفكير...</span>
+                        <span className="text-xs text-muted-foreground font-mono">{thinkingTime}s</span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0s" }} />
+                        <span className="h-2 w-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0.15s" }} />
+                        <span className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0.3s" }} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -671,12 +713,24 @@ const Chat = () => {
           </button>
         )}
 
-        {/* Image preview */}
-        {uploadedImagePreview && (
+        {/* Image/ file preview */}
+        {(uploadedImagePreview || (uploadedFileName && !uploadedImagePreview)) && (
           <div className="shrink-0 px-4 py-2 border-t border-border/40 glass-strong">
             <div className="flex items-center gap-2">
-              <img src={uploadedImagePreview} alt="" className="h-16 w-16 rounded-lg object-cover" />
-              <button onClick={() => { setUploadedImageUrl(null); setUploadedImagePreview(null); }} className="text-destructive">
+              {uploadedImagePreview ? (
+                <>
+                  <img src={uploadedImagePreview} alt="" className="h-16 w-16 rounded-lg object-cover cursor-pointer hover:opacity-80" 
+                    onClick={() => window.open(uploadedImagePreview, '_blank')} />
+                  {uploadedFileName && (
+                    <span className="text-xs text-muted-foreground max-w-[150px] truncate">{uploadedFileName}</span>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2">
+                  <span className="text-sm text-foreground">{uploadedFileName}</span>
+                </div>
+              )}
+              <button onClick={clearUploadedFile} className="text-destructive p-1 hover:bg-destructive/10 rounded">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -701,10 +755,18 @@ const Chat = () => {
                 {showPlus && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowPlus(false)} />
-                    <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl glass-strong border border-border/40 p-2 z-50">
+                    <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl glass-strong border border-border/40 p-2 z-50 space-y-1">
                       <button onClick={() => { setShowPlus(false); fileInputRef.current?.click(); }}
                         className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-secondary/60 transition-colors">
-                        <Image className="h-4 w-4 text-accent" /> رفع صورة / ملف
+                        <Image className="h-4 w-4 text-accent" /> رفع صورة
+                      </button>
+                      <button onClick={() => { setShowPlus(false); navigate("/chat?createImage=true"); }}
+                        className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-secondary/60 transition-colors">
+                        <Sparkles className="h-4 w-4 text-purple-400" /> إنشاء صورة بالذكاء
+                      </button>
+                      <button onClick={() => { setShowPlus(false); navigate("/chat?webSearch=true"); }}
+                        className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-secondary/60 transition-colors">
+                        <Search className="h-4 w-4 text-blue-400" /> بحث في الويب
                       </button>
                     </div>
                   </>

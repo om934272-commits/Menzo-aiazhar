@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Send, Search, UserPlus, X, Image, Mic, MicOff,
   Paperclip, ChevronDown, MoreVertical, Phone, Video, Square,
-  Trash2, Ban, Flag, Check, CheckCheck
+  Trash2, Ban, Flag, Check, CheckCheck, Download, Smile, AtSign, FileText, File
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -499,16 +499,18 @@ const Messages = () => {
         <button onClick={() => { setSelectedFriend(null); loadFriends(); }} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        {selectedFriend.avatar_url ? (
-          <img src={selectedFriend.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover border border-primary/30" />
-        ) : (
-          <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold">
-            {(selectedFriend.display_name || "؟")[0]}
+        <button onClick={() => navigate(`/profile/${selectedFriend.id}`)} className="flex items-center gap-2">
+          {selectedFriend.avatar_url ? (
+            <img src={selectedFriend.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover border border-primary/30" />
+          ) : (
+            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold">
+              {(selectedFriend.display_name || "؟")[0]}
+            </div>
+          )}
+          <div className="flex-1">
+            <span className="text-sm font-bold text-foreground">{selectedFriend.display_name || "بدون اسم"}</span>
           </div>
-        )}
-        <div className="flex-1">
-          <span className="text-sm font-bold text-foreground">{selectedFriend.display_name || "بدون اسم"}</span>
-        </div>
+        </button>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => reportUser(selectedFriend.id)}>
             <Flag className="h-4 w-4 text-muted-foreground" />
@@ -575,7 +577,22 @@ const Messages = () => {
                       : "bg-secondary/60 text-foreground border border-border/30"
                   }`}>
                     {msg.image_url && (
-                      <img src={msg.image_url} alt="" className="rounded-xl max-h-48 w-auto mb-1" />
+                      <div className="relative group">
+                        <img src={msg.image_url} alt="" className="rounded-xl max-h-48 w-auto mb-1 cursor-pointer" 
+                          onClick={() => window.open(msg.image_url!, '_blank')} />
+                        <a href={msg.image_url} download className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 p-1.5 rounded-full">
+                          <Download className="h-4 w-4 text-foreground" />
+                        </a>
+                      </div>
+                    )}
+                    {msg.file_url && (
+                      <div className="flex items-center gap-2 bg-background/20 rounded-lg px-3 py-2 mb-1">
+                        <File className="h-5 w-5 text-primary shrink-0" />
+                        <span className="text-sm flex-1 truncate">{msg.file_name || "ملف"}</span>
+                        <a href={msg.file_url} download={msg.file_name || "file"} className="text-primary hover:underline">
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </div>
                     )}
                     {msg.content && msg.content !== "📷 صورة" && (
                       <p className="text-sm whitespace-pre-wrap">{renderLink(msg.content)}</p>
@@ -617,19 +634,34 @@ const Messages = () => {
 
           {/* Input - Sticky bottom */}
           <div className="sticky bottom-0 border-t border-border/40 p-3 glass-strong">
+            {/* File preview */}
+            {imagePreview && (
+              <div className="flex items-center gap-2 mb-2">
+                <img src={imagePreview} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                <button onClick={() => { setImageFile(null); setImagePreview(null); }} className="text-destructive p-1">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-primary"
                 onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-5 w-5" />
               </Button>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*"
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf,.doc,.docx,.txt"
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  setImageFile(file);
-                  const reader = new FileReader();
-                  reader.onload = ev => setImagePreview(ev.target?.result as string);
-                  reader.readAsDataURL(file);
+                  if (file.type.startsWith("image/")) {
+                    setImageFile(file);
+                    const reader = new FileReader();
+                    reader.onload = ev => setImagePreview(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  } else {
+                    // Non-image file - show filename
+                    setImageFile(file);
+                    toast({ title: "تم", description: `تم اختيار: ${file.name}` });
+                  }
                 }} />
               <textarea
                 value={input}
@@ -639,6 +671,14 @@ const Messages = () => {
                 className="flex-1 resize-none bg-secondary/50 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border/30 focus:border-primary/50 max-h-24"
                 rows={1}
               />
+              <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-primary"
+                onClick={() => {
+                  const emojis = ["😀", "😂", "😍", "👍", "❤️", "🎉", "🔥", "💯", "🙏", "😢"];
+                  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                  setInput(prev => prev + randomEmoji);
+                }}>
+                <Smile className="h-5 w-5" />
+              </Button>
               <Button onClick={sendMessage} disabled={loading || (!input.trim() && !imageFile)} size="icon"
                 className="bg-primary text-primary-foreground shadow-glow shrink-0 rounded-xl">
                 <Send className="h-4 w-4" />
