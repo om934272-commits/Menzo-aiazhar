@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, Image, Trash2, Plus, X, Download, Mic, Square, Video, ChevronDown, Paperclip, Users } from "lucide-react";
+import { ArrowLeft, Send, Image, Trash2, Plus, X, Download, Mic, Square, Video, ChevronDown, Paperclip, Users, Smile } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface ForumPost {
@@ -37,6 +37,18 @@ const Forum = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0);
+  
+  // Emoji picker data
+  const emojiCategories = [
+    { name: "ابتسامات", emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕"] },
+    { name: "إيماءات", emojis: ["👍", "👎", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏", "✍️", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄"] },
+    { name: "قلوب", emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"] },
+    { name: "أشكال", emojis: ["🔥", "⭐", "🌟", "✨", "💫", "💥", "💯", "💢", "💦", "🎵", "🎶", "🎉", "🎊", "🎈", "🏆", "🥇", "🥈", "🥉", "🎯", "🎪", "🎭", "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🪕"] },
+    { name: "أخرى", emojis: ["👻", "💩", "🤡", "👽", "👾", "🎃", "🤖", "💊", "💉", "🩸", "🧬", "🦠", "🧪", "🧫", "🩺", "🩻", "💰", "💳", "💵", "🪙", "💸", "📱", "💻", "🖥️", "📞", "☎️", "📧", "📺", "⏰", "🕐", "🕑", "🕒", "📅", "📆"] },
+  ];
+  
   const [activeUsers, setActiveUsers] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -352,13 +364,15 @@ const Forum = () => {
             <div key={post.id} className={`group flex gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
               {showAvatar ? (
                 <div className="shrink-0">
-                  {post.profile?.avatar_url ? (
-                    <img src={post.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover border-2 border-primary/40" />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                      {senderName[0]}
-                    </div>
-                  )}
+                  <button onClick={() => navigate(`/profile/${post.user_id}`)} className="hover:opacity-80 transition-opacity">
+                    {post.profile?.avatar_url ? (
+                      <img src={post.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover border-2 border-primary/40" />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                        {senderName[0]}
+                      </div>
+                    )}
+                  </button>
                 </div>
               ) : (
                 <div className="w-8 shrink-0" />
@@ -498,6 +512,30 @@ const Forum = () => {
               placeholder="اكتب رسالتك..."
               className="flex-1 resize-none bg-secondary/50 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border/30 focus:border-primary/50 max-h-24"
               rows={1} />
+            <div className="relative">
+              <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-primary"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+                <Smile className="h-5 w-5" />
+              </Button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-full left-0 mb-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-2">
+                  <div className="flex gap-1 mb-2 overflow-x-auto pb-1">
+                    {emojiCategories.map((cat, idx) => (
+                      <button key={idx} onClick={() => setActiveEmojiCategory(idx)}
+                        className={`px-2 py-1 text-xs rounded-lg whitespace-nowrap ${activeEmojiCategory === idx ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
+                    {emojiCategories[activeEmojiCategory].emojis.map((emoji, i) => (
+                      <button key={i} onClick={() => { setMessage(prev => prev + emoji); setShowEmojiPicker(false); }}
+                        className="p-1 hover:bg-secondary rounded text-lg text-center">{emoji}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             {message.trim() || imageFiles.length > 0 || audioBlob || videoFile ? (
               <Button onClick={sendPost} disabled={loading} size="icon"
                 className="bg-primary text-primary-foreground shadow-glow shrink-0 rounded-xl">

@@ -791,10 +791,15 @@ const Chat = () => {
                   <Mic className="h-5 w-5" />
                 </Button>
               )}
-              <Button onClick={() => sendMessage()} disabled={isLoading || (!input.trim() && !uploadedImageUrl)} size="icon"
-                className="bg-primary text-primary-foreground shadow-glow shrink-0 rounded-xl">
-                <Send className="h-4 w-4" />
-              </Button>
+              {isLoading ? (
+                <Button onClick={stopGeneration} size="icon" className="bg-destructive text-destructive-foreground shrink-0 rounded-xl">
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button onClick={() => sendMessage()} disabled={!input.trim() && !uploadedImageUrl} size="icon" className="bg-primary text-primary-foreground shadow-glow shrink-0 rounded-xl">
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

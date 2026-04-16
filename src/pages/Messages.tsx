@@ -63,6 +63,16 @@ const Messages = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockedByName, setBlockedByName] = useState("");
 
+  // Emoji picker data
+  const emojiCategories = [
+    { name: "ابتسامات", emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕"] },
+    { name: "إيماءات", emojis: ["👍", "👎", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏", "✍️", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄"] },
+    { name: "قلوب", emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"] },
+    { name: "أشكال", emojis: ["🔥", "⭐", "🌟", "✨", "💫", "💥", "💯", "💢", "💦", "🎵", "🎶", "🎉", "🎊", "🎈", "🏆", "🥇", "🥈", "🥉", "🎯", "🎪", "🎭", "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🪕"] },
+    { name: "أخرى", emojis: ["👻", "💩", "🤡", "👽", "👾", "🎃", "🤖", "💊", "💉", "🩸", "🧬", "🦠", "🧪", "🧫", "🩺", "🩻", "💰", "💳", "💵", "🪙", "💸", "📱", "💻", "🖥️", "📞", "☎️", "📧", "📺", "📺", "⏰", "🕐", "🕑", "🕒", "📅", "📆"] },
+  ];
+
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -672,13 +682,27 @@ const Messages = () => {
                 rows={1}
               />
               <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-primary"
-                onClick={() => {
-                  const emojis = ["😀", "😂", "😍", "👍", "❤️", "🎉", "🔥", "💯", "🙏", "😢"];
-                  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                  setInput(prev => prev + randomEmoji);
-                }}>
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
                 <Smile className="h-5 w-5" />
               </Button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-full left-0 mb-2 w-72 bg-background border border-border rounded-xl shadow-xl z-50 p-2">
+                  <div className="flex gap-1 mb-2 overflow-x-auto pb-1">
+                    {emojiCategories.map((cat, idx) => (
+                      <button key={idx} onClick={() => setActiveEmojiCategory(idx)}
+                        className={`px-2 py-1 text-xs rounded-lg whitespace-nowrap ${activeEmojiCategory === idx ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
+                    {emojiCategories[activeEmojiCategory].emojis.map((emoji, i) => (
+                      <button key={i} onClick={() => { setInput(prev => prev + emoji); setShowEmojiPicker(false); }}
+                        className="p-1 hover:bg-secondary rounded text-lg text-center">{emoji}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Button onClick={sendMessage} disabled={loading || (!input.trim() && !imageFile)} size="icon"
                 className="bg-primary text-primary-foreground shadow-glow shrink-0 rounded-xl">
                 <Send className="h-4 w-4" />
